@@ -1,9 +1,11 @@
 [Setup]
-#define MyAppVersion "2.0.0"
-AppName=ZBHelper
+#define MyAppName "ZBHelper"
+#define MyAppVersion "2.5.0"
+#define MyAppPublisher "roodyu"
+AppName={#MyAppName}
 AppVersion={#MyAppVersion}
-DefaultDirName={pf}\ZBHelper
-DefaultGroupName=ZBHelper
+DefaultDirName={pf}\{#MyAppName}
+DefaultGroupName={#MyAppName}
 OutputDir=.\Output
 OutputBaseFilename=ZBHelper_Setup
 Compression=lzma

@@ -109,13 +109,12 @@ class Api:
     def hide_window(self):
         global window_is_hidden
         try:
-            user32 = ctypes.windll.user32
-            hwnd = user32.FindWindowW(None, 'ZBHelper')
-            if hwnd and not window_is_hidden:
-                user32.ShowWindow(hwnd, 0)
-                window_is_hidden = True
-        except:
-            pass
+            if self._window:
+                self._window.hide()
+            window_is_hidden = True
+            watermark_overlay.hide()
+        except Exception as e:
+            log_debug("Error hiding window: " + str(e))
         
     def close_app(self):
         import os

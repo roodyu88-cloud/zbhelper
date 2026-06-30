@@ -590,7 +590,7 @@
         <header class="titlebar pywebview-drag-region">
             <div class="titlebar-left">
                 <div class="logo">ZBH</div>
-                <div class="app-title">ZBHelper</div>
+                <div class="app-title">ZBHelper <span style="font-size: 0.5em; opacity: 0.7; margin-left: 5px;">v. 2.5.0</span></div>
             </div>
             <div class="titlebar-right">
                 <button class="btn-close-app" id="btn-close" aria-label="Скрыть" title="Скрыть (PgDown)">
@@ -1070,14 +1070,14 @@
                         let html = '';
                         if(data && data.supporters) {
                             html += '<div style="margin-bottom: 15px;"><strong>Разработчик:</strong><br><span style="color: var(--accent-color);">' + (data.supporters.dev || "roodyu") + '</span></div>';
-                            html += '<div style="margin-bottom: 15px;"><strong>Донатеры ❤️:</strong><br>';
+                            html += '<div style="margin-bottom: 15px;"><strong>Донатеры:</strong><br>';
                             if(data.supporters.donators && data.supporters.donators.length > 0) {
                                 html += data.supporters.donators.map(d => `<span style="color: #4caf50;">${d.name || d}</span>`).join('<br>');
                             } else {
                                 html += '<span style="color: var(--text-secondary);">Пока никого нет</span>';
                             }
                             html += '</div>';
-                            html += '<div style="margin-bottom: 15px;"><strong>Багхантеры 🐛:</strong><br>';
+                            html += '<div style="margin-bottom: 15px;"><strong>Багхантеры:</strong><br>';
                             if(data.supporters.bug_hunters && data.supporters.bug_hunters.length > 0) {
                                 html += data.supporters.bug_hunters.map(d => `<span style="color: #ff9800;">${d}</span>`).join('<br>');
                             } else {

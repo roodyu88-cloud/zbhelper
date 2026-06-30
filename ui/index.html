@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZBHelper</title>
+    <style>
+        :root {
+            --bg-base: #111111;
+            --bg-surface: #1a1a1a;
+            --bg-surface-hover: #2a2a2a;
+            --border-color: #333333;
+            --text-primary: #ffffff;
+            --text-secondary: #999999;
+            --accent-color: #0078d7;
+            --accent-hover: #005a9e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: transparent;
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Allow selection in content areas */
+        .content-area, .codex-content, input, textarea {
+            user-select: text;
+        }
+
+        .app-window {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .titlebar {
+            height: 40px;
+            background-color: var(--bg-base);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            -webkit-app-region: drag;
+        }
+
+        /* Support pywebview dragging */
+        .pywebview-drag-region {
+            -webkit-app-region: drag;
+        }
+
+        .titlebar-left {
+            display: flex;
+            align-items: center;
+            height: 100%;
+        }
+
+        .logo {
+            height: 100%;
+            background-color: transparent;
+            color: var(--text-primary);
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            letter-spacing: -1px;
+            padding: 0 15px;
+        }
+
+        .app-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .titlebar-right {
+            display: flex;
+            height: 100%;
+            -webkit-app-region: no-drag;
+        }
+
+        .btn-close-app {
+            width: 45px;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .btn-close-app:hover {
+            background-color: #e81123;
+            color: white;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 220px;
+            background-color: rgba(26, 26, 26, 0.7);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 15px 0;
+            -webkit-app-region: no-drag;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: background-color 0.2s, color 0.2s, border-left 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item svg {
+            margin-right: 15px;
+            opacity: 0.8;
+            stroke-width: 1.5;
+        }
+
+        .nav-item:hover {
+            background-color: var(--bg-surface-hover);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border-left-color: var(--accent-color);
+        }
+
+        .nav-item.active svg {
+            opacity: 1;
+        }
+
+        .content-area {
+            flex: 1;
+            background-color: transparent;
+            position: relative;
+            overflow: hidden;
+            -webkit-app-region: no-drag;
+        }
+
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* ZB Tab */
+        .search-container {
+            margin-bottom: 25px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-input {
+            flex: 1;
+            background-color: rgba(26, 26, 26, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 12px 15px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--text-secondary);
+        }
+
+        .search-btn {
+            background-color: transparent;
+            border: 1px solid var(--text-primary);
+            color: var(--text-primary);
+            padding: 0 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background-color 0.2s, color 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .search-btn:hover {
+            background-color: var(--text-primary);
+            color: var(--bg-base);
+        }
+
+        .codex-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .codex-card {
+            background-color: rgba(26, 26, 26, 0.6);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s, background-color 0.2s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .codex-card:hover {
+            border-color: var(--text-secondary);
+            background-color: var(--bg-surface-hover);
+        }
+
+        .codex-card-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .codex-card-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+        
+        .code-content-view {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+        }
+        
+        .back-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        
+        .back-btn:hover {
+            color: var(--text-primary);
+        }
+        
+        .article-block {
+            background-color: rgba(26, 26, 26, 0.6);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .article-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        
+        .article-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+
+        /* Settings Tab */
+        .settings-group {
+            margin-bottom: 35px;
+        }
+
+        .settings-group h3 {
+            font-size: 12px;
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .setting-label {
+            font-size: 14px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .setting-control select, .setting-control input[type="text"], .setting-control input[type="password"] {
+            background-color: rgba(26, 26, 26, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            font-size: 14px;
+            outline: none;
+            width: 250px;
+            transition: border-color 0.2s;
+        }
+        
+        .setting-control select:focus, .setting-control input[type="text"]:focus, .setting-control input[type="password"]:focus {
+            border-color: var(--text-secondary);
+        }
+
+        .setting-control input[type="color"] {
+            padding: 0;
+            height: 35px;
+            width: 60px;
+            cursor: pointer;
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+        }
+        
+        .setting-control input[type="range"] {
+            width: 250px;
+        }
+
+        .hotkey-btn {
+            background-color: rgba(26, 26, 26, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 15px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 250px;
+            text-align: center;
+            transition: border-color 0.2s;
+        }
+        
+        .hotkey-btn:hover {
+            border-color: var(--text-secondary);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+        }
+
+        .btn-outline:hover {
+            background: var(--bg-surface-hover);
+            border-color: var(--text-secondary);
+        }
+
+        /* Notes Tab Specifics */
+        .notes-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 25px;
+        }
+
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .note-card {
+            background-color: rgba(26, 26, 26, 0.6);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: border-color 0.2s;
+        }
+        
+        .note-card:hover {
+            border-color: var(--text-secondary);
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background-color: var(--bg-base);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .note-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            outline: none;
+            flex: 1;
+        }
+
+        .note-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .note-action-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px;
+            transition: color 0.2s;
+        }
+
+        .note-action-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .note-content {
+            padding: 15px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            min-height: 120px;
+            outline: none;
+        }
+
+        /* AI Tab */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border: 1px solid var(--border-color);
+            background-color: rgba(26, 26, 26, 0.5);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .msg {
+            max-width: 85%;
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.5;
+            border: 1px solid var(--border-color);
+        }
+
+        .msg.ai {
+            background-color: rgba(17, 17, 17, 0.8);
+            align-self: flex-start;
+            border-left: 3px solid var(--text-primary);
+        }
+
+        .msg.user {
+            background-color: rgba(42, 42, 42, 0.8);
+            align-self: flex-end;
+            color: var(--text-primary);
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--bg-base);
+            gap: 10px;
+        }
+        
+        .chat-input-area input {
+            flex: 1;
+            background-color: rgba(26, 26, 26, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 12px 15px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input-area input:focus {
+            border-color: var(--text-secondary);
+        }
+
+        .chat-input-area button {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--text-primary);
+            padding: 0 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 13px;
+        }
+        
+        .chat-input-area button:hover {
+            background-color: var(--text-primary);
+            color: var(--bg-base);
+        }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+    </style>
+</head>
+<body>
+
+    <div class="app-window">
+        <!-- Titlebar -->
+        <header class="titlebar pywebview-drag-region">
+            <div class="titlebar-left">
+                <div class="logo">ZBH</div>
+                <div class="app-title">ZBHelper</div>
+            </div>
+            <div class="titlebar-right">
+                <button class="btn-close-app" id="btn-close" aria-label="Скрыть" title="Скрыть (PgDown)">
+                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="square"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <aside class="sidebar">
+                <nav>
+                    <a href="#" class="nav-item active" data-tab="tab-zb">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+                        ЗБ БАЗА
+                    </a>
+                    <a href="#" class="nav-item" data-tab="tab-fav">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-linecap="square" stroke-linejoin="miter"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        Избранное
+                    </a>
+                    <a href="#" class="nav-item" data-tab="tab-ai">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-linecap="square" stroke-linejoin="miter"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        AI Вопрос
+                    </a>
+                    <a href="#" class="nav-item" data-tab="tab-notes">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-linecap="square" stroke-linejoin="miter"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        Заметки
+                    </a>
+                    <a href="#" class="nav-item" data-tab="tab-settings">
+                        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-linecap="square" stroke-linejoin="miter"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                        Настройки
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- Content Area -->
+            <main class="content-area">
+                
+                <!-- Tab: ЗБ (Legislative Base) -->
+                <div class="tab-content active" id="tab-zb">
+                    <div id="zb-list-view">
+                        <div class="search-container">
+                            <input type="text" class="search-input" id="search-zb-input" placeholder="Поиск по кодексу или статье...">
+                            <button class="search-btn" id="search-zb-btn">Искать</button>
+                        </div>
+                        
+                        <div class="codex-list" id="codex-container">
+                            <div class="codex-card">
+                                <div class="codex-card-title">Ожидание данных...</div>
+                                <div class="codex-card-desc">Зайдите в настройки и обновите базу.</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="code-content-view" id="zb-content-view">
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+                            <button class="back-btn" id="btn-back-to-list" style="margin-bottom: 0;">
+                                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                Назад
+                            </button>
+                            <h2 id="view-codex-title" style="margin: 0; font-size: 16px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Название кодекса</h2>
+                            <input type="text" id="search-inner-input" placeholder="Поиск по кодексу..." style="background: rgba(26,26,26,0.8); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 12px; outline: none; border-radius: 4px; font-size: 13px; width: 200px;">
+                        </div>
+                        <div id="view-codex-articles" style="overflow-y: auto; flex: 1; padding-right: 10px;">
+                            <!-- Articles go here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Избранное -->
+                <div class="tab-content" id="tab-fav">
+                    <h2 style="margin-bottom: 20px; font-size: 18px;">Избранное</h2>
+                    <div id="fav-container">
+                        <!-- Fav items go here -->
+                    </div>
+                </div>
+
+                <!-- Tab: AI Вопрос -->
+                <div class="tab-content" id="tab-ai">
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chat-messages">
+                            <div class="msg ai">
+                                Приветствую. Я AI-ассистент базы ZBHelper. Задайте мне любой вопрос по законодательной базе, назовите статью или опишите ситуацию, и я помогу найти нужную информацию.
+                            </div>
+                        </div>
+                        <div class="chat-input-area" style="user-select: none;">
+                            <input type="text" id="ai-input" placeholder="Введите ваш запрос..." style="user-select: text;">
+                            <button id="btn-ai-send" class="btn" style="user-select: none;">Отправить</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Заметки -->
+                <div class="tab-content" id="tab-notes">
+                    <div class="notes-header">
+                        <button class="btn-outline" id="btn-add-note" style="display: flex; align-items: center; gap: 8px;">
+                            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="square"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            СОЗДАТЬ ЗАМЕТКУ
+                        </button>
+                    </div>
+                    
+                    <div class="notes-grid" id="notes-container">
+                        <!-- Notes -->
+                    </div>
+                </div>
+
+                <!-- Tab: Настройки -->
+                <div class="tab-content" id="tab-settings">
+                    <div class="settings-group">
+                        <h3>Основное</h3>
+                        <div class="setting-item">
+                            <span class="setting-label">Игровой сервер</span>
+                            <div class="setting-control" style="display: flex; flex-direction: column; gap: 5px; align-items: flex-end; width: 100%;">
+                                <div style="display: flex; gap: 10px; width: 100%;">
+                                    <select id="setting-server" style="flex: 1;">
+                                        <option value="">Загрузка серверов...</option>
+                                    </select>
+                                    <button class="btn-outline" id="btn-update-db" style="white-space: nowrap;">ОБНОВИТЬ БАЗУ</button>
+                                </div>
+                                <span id="db-status" style="font-size: 12px; color: var(--text-secondary);">Не синхронизировано</span>
+                                <div id="parse-progress-container" style="display: none; width: 100%; max-width: 200px; height: 4px; background: #333; margin-top: 5px; overflow: hidden; position: relative;">
+                                    <div id="parse-progress-bar" style="width: 50%; height: 100%; background: var(--accent-color); position: absolute; animation: indeterminate 1.5s infinite linear;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <style>
+                            @keyframes indeterminate {
+                                0% { left: -50%; width: 50%; }
+                                100% { left: 100%; width: 50%; }
+                            }
+                        </style>
+                        <div class="setting-item">
+                            <span class="setting-label">Горячая клавиша (Показать/Скрыть)</span>
+                            <div class="setting-control">
+                                <button class="hotkey-btn" id="setting-hotkey">pgdown</button>
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span class="setting-label" style="margin-bottom: 0;">Groq API Токен</span>
+                                <div style="border: 1px solid var(--border-color); background: rgba(0,0,0,0.2); width: 22px; height: 22px; border-radius: 50%; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; padding: 0; user-select: none;" onmousedown="this.style.background='rgba(255,255,255,0.1)'" onmouseup="this.style.background='rgba(0,0,0,0.2)'" onmouseleave="this.style.background='rgba(0,0,0,0.2)'" onclick="document.getElementById('groq-help-modal').style.display='flex'" title="Инструкция по настройке">?</div>
+                            </div>
+                            <div class="setting-control" style="display: flex; gap: 5px; align-items: center;">
+                                <input type="password" id="setting-groq-token" placeholder="gsk_..." style="width: 250px; background-color: rgba(26, 26, 26, 0.8); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; font-size: 14px; outline: none;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3>Кастомизация</h3>
+                        <div class="setting-item">
+                            <span class="setting-label">Акцентный цвет</span>
+                            <div class="setting-control">
+                                <input type="color" id="setting-accent-color" value="#0078d7">
+                            </div>
+                        </div>
+                        <div class="setting-item">
+                            <span class="setting-label">Прозрачность окна (%)</span>
+                            <div class="setting-control">
+                                <input type="range" id="setting-opacity" min="10" max="100" value="95">
+                            </div>
+                        </div>
+                    </div>
+                    
+                        <div style="margin-top: 40px; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border-color); text-align: center;">
+                            <h4 style="margin-top: 0; margin-bottom: 15px; color: var(--text-primary); font-size: 16px;">--- ZBHelper ---</h4>
+                            <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.8; text-align: left;">
+                                <div>Автор скрипта: <span style="cursor:pointer; color: var(--accent-color); font-weight: bold;" onclick="if(window.pywebview) window.pywebview.api.open_url('https://github.com/roodyu88-cloud')">roodyu &lt;3</span></div>
+                                <div>Связаться в дискорд: <span style="cursor:pointer; color: var(--accent-color); font-weight: bold;" onclick="if(window.pywebview) window.pywebview.api.open_url('https://discordapp.com/users/1416075078466277481/')">roodyu</span></div>
+                                <div>Связаться в телеграм: <a href="javascript:void(0)" onclick="if(window.pywebview) window.pywebview.api.open_url('https://t.me/roodyu88')" style="color: var(--accent-color); font-weight: bold; text-decoration: none;">roodyu88</a></div>
+                                <div>Telegram-канал проекта: <a href="javascript:void(0)" onclick="if(window.pywebview) window.pywebview.api.open_url('https://t.me/ZBH_gta5rp')" style="color: var(--accent-color); font-weight: bold; text-decoration: none;">ZBH_gta5rp</a></div>
+                            </div>
+                            <h4 style="margin-top: 15px; margin-bottom: 15px; color: var(--text-primary); font-size: 14px;">--- <a href="javascript:void(0)" onclick="if(window.pywebview) window.pywebview.api.open_url('https://github.com/roodyu88-cloud/zbhelper')" style="color: var(--text-primary); font-weight: bold; text-decoration: none;">https://github.com/roodyu88-cloud/zbhelper</a> ---</h4>
+                            <div style="margin-top: 20px;">
+                                <button id="btn-close-app" class="btn-outline" style="width: 100%; border-color: #d32f2f; color: #ff6b6b;">ВЫЙТИ ИЗ ZBHELPER</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Confirm Modal -->
+                <div id="confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; user-select: none;">
+                    <div style="background: var(--bg-base); border: 1px solid var(--border-color); padding: 20px; width: 320px; text-align: center; border-radius: 6px;">
+                        <h4 style="margin-top: 0; font-size: 16px;">Закрыть программу?</h4>
+                        <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 20px;">ZBHelper будет полностью закрыт и выгружен из памяти.</p>
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button id="modal-cancel" class="btn-outline" style="flex: 1;">ОТМЕНА</button>
+                            <button id="modal-confirm" class="btn-outline" style="flex: 1; border-color: #d32f2f; color: #ff6b6b;">ВЫЙТИ</button>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Groq Help Modal -->
+    <div id="groq-help-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; user-select: none;">
+        <div style="background: var(--bg-base); border: 1px solid var(--border-color); padding: 25px; width: 450px; text-align: left; border-radius: 8px; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+            <button class="close-btn" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text-secondary); font-size: 18px; cursor: pointer;" onclick="document.getElementById('groq-help-modal').style.display='none'">✕</button>
+            <h3 style="margin-top: 0; margin-bottom: 20px; color: var(--text-primary);">Настройка AI (Groq API)</h3>
+            <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.6; user-select: text;">
+                <p style="margin-top: 0;">Для работы AI-ассистента требуется бесплатный токен от Groq:</p>
+                <ol style="padding-left: 20px; margin-bottom: 20px;">
+                    <li style="margin-bottom: 8px;">Перейдите на <a href="javascript:void(0)" onclick="if(window.pywebview) window.pywebview.api.open_url('https://console.groq.com/keys')" style="color: var(--accent-color); font-weight: bold; text-decoration: none;">console.groq.com/keys</a></li>
+                    <li style="margin-bottom: 8px;">Авторизуйтесь или создайте аккаунт</li>
+                    <li style="margin-bottom: 8px;">Нажмите кнопку <b>Create API Key</b></li>
+                    <li style="margin-bottom: 8px;">Скопируйте ключ (начинается на <i>gsk_</i>) и вставьте его в настройки ZBHelper</li>
+                </ol>
+                <div style="padding: 12px; background: rgba(255, 107, 107, 0.1); border-left: 3px solid #ff6b6b; border-radius: 4px; font-size: 13px;">
+                    <b style="color: #ff6b6b;">Важное примечание:</b> Сервис Groq может блокировать подключения из РФ. Если ИИ выдает ошибку "Forbidden" или "Ошибка 403", пожалуйста, включите VPN перед использованием AI.
+                </div>
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button onclick="document.getElementById('groq-help-modal').style.display='none'" style="background: var(--accent-color); color: var(--bg-base); border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">Понятно</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data states
+        let codexData = [];
+        let notesData = [];
+
+        // Tabs
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                item.classList.add('active');
+                
+                document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+                const tabId = item.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+                
+                if (tabId === 'tab-zb') {
+                    if (typeof render_codex_list === 'function' && codexData.length > 0) {
+                        document.getElementById('zb-content-view').style.display = 'none';
+                        document.getElementById('zb-list-view').style.display = 'block';
+                        render_codex_list(codexData);
+                    }
+                }
+            });
+        });
+
+        // Close to tray
+        document.getElementById('btn-close').addEventListener('click', () => {
+            if (window.pywebview) {
+                window.pywebview.api.hide_window();
+            }
+        });
+
+        // Settings updates
+        document.getElementById('setting-opacity').addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.body.style.backgroundColor = `rgba(17, 17, 17, ${val / 100})`;
+            if (window.pywebview) {
+                window.pywebview.api.update_opacity(val / 100);
+            }
+        });
+
+        document.getElementById('setting-hotkey').addEventListener('click', (e) => {
+            const btn = e.target;
+            btn.innerText = "Нажмите клавишу...";
+            if (window.pywebview) {
+                window.pywebview.api.listen_hotkey().then(key => {
+                    btn.innerText = key;
+                });
+            }
+        });
+
+        // DB Update
+        document.getElementById('btn-update-db').addEventListener('click', () => {
+            const server = document.getElementById('setting-server').value;
+            const btn = document.getElementById('btn-update-db');
+            const progressContainer = document.getElementById('parse-progress-container');
+            if (window.pywebview) {
+                btn.innerText = "ПАРСИНГ...";
+                progressContainer.style.display = 'block';
+                document.getElementById('db-status').innerText = "Парсинг...";
+                window.pywebview.api.update_db(server).then(res => {
+                    document.getElementById('db-status').innerText = "Синхронизировано";
+                    progressContainer.style.display = 'none';
+                    btn.innerText = "ОБНОВИТЬ БАЗУ";
+                    load_codex_list();
+                }).catch(err => {
+                    document.getElementById('db-status').innerText = "Ошибка парсинга";
+                    progressContainer.style.display = 'none';
+                    btn.innerText = "ОБНОВИТЬ БАЗУ";
+                });
+            }
+        });
+
+        function load_codex_list() {
+            if (window.pywebview) {
+                window.pywebview.api.get_codex().then(data => {
+                    codexData = data;
+                    render_codex_list(codexData);
+                });
+            }
+        }
+        
+        function init_app() {
+            if (window.pywebview) {
+                window.pywebview.api.get_settings().then(settings => {
+                    document.getElementById('setting-opacity').value = Math.round(settings.opacity * 100);
+                    document.body.style.backgroundColor = `rgba(17, 17, 17, ${settings.opacity})`;
+                    document.getElementById('setting-hotkey').innerText = settings.hotkey;
+                    document.getElementById('setting-groq-token').value = settings.groq_token || '';
+                    if (settings.accent_color) {
+                        document.getElementById('setting-accent-color').value = settings.accent_color;
+                        document.documentElement.style.setProperty('--accent-color', settings.accent_color);
+                    }
+                    
+                    // Fetch servers
+                    window.pywebview.api.get_servers().then(servers => {
+                        const select = document.getElementById('setting-server');
+                        select.innerHTML = '';
+                        servers.forEach(s => {
+                            const opt = document.createElement('option');
+                            opt.value = s.url;
+                            opt.innerText = s.name;
+                            if (settings.server === s.url) opt.selected = true;
+                            select.appendChild(opt);
+                        });
+                        
+                        // If no server was selected, default to the first one
+                        if (!settings.server && servers.length > 0) {
+                            select.selectedIndex = 0;
+                            // window.pywebview.api.update_db(servers[0].url); // Optional: auto-fetch?
+                        }
+                    });
+                    
+                    document.getElementById('setting-groq-token').addEventListener('input', (e) => {
+                        settings.groq_token = e.target.value;
+                        window.pywebview.api.update_setting('groq_token', e.target.value);
+                    });
+                    
+                    document.getElementById('btn-close-app').addEventListener('click', () => {
+                        document.getElementById('confirm-modal').style.display = 'flex';
+                    });
+                    document.getElementById('modal-cancel').addEventListener('click', () => {
+                        document.getElementById('confirm-modal').style.display = 'none';
+                    });
+                    document.getElementById('modal-confirm').addEventListener('click', (e) => {
+                        const btn = e.target;
+                        btn.innerHTML = '<span style="display:inline-block; width:14px; height:14px; border:2px solid #ff6b6b; border-top-color:transparent; border-radius:50%; animation:spin 1s linear infinite; margin-right:8px; vertical-align:middle;"></span>Выход...';
+                        btn.style.pointerEvents = 'none';
+                        window.pywebview.api.close_app();
+                    });
+                    
+                    document.getElementById('setting-accent-color').addEventListener('input', (e) => {
+                        settings.accent_color = e.target.value;
+                        document.documentElement.style.setProperty('--accent-color', e.target.value);
+                        window.pywebview.api.update_setting('accent_color', e.target.value);
+                    });
+
+                });
+                
+                window.pywebview.api.get_favs().then(res => {
+                    favsData = res || [];
+                    render_favs();
+                });
+                
+                load_codex_list();
+            }
+        }
+        
+        window.addEventListener('pywebviewready', init_app);
+
+        function render_codex_list(data) {
+            const container = document.getElementById('codex-container');
+            container.innerHTML = '';
+            
+            if (data.length === 0) {
+                container.innerHTML = '<div class="codex-card"><div class="codex-card-title">Пусто</div></div>';
+                return;
+            }
+
+            // Determine pinned codexes
+            const mainCodes = ["Уголовный Кодекс (УК)", "Кодекс об Административных Правонарушениях (АК/КОАП)", "Дорожный Кодекс (ДК)", "Процессуальный Кодекс (ПК)"];
+            
+            data.sort((a, b) => {
+                const aPinned = mainCodes.includes(a.title) ? 1 : 0;
+                const bPinned = mainCodes.includes(b.title) ? 1 : 0;
+                return bPinned - aPinned; // Pinned first
+            });
+
+            data.forEach((codex) => {
+                const card = document.createElement('div');
+                card.className = 'codex-card';
+                const isPinned = mainCodes.includes(codex.title);
+                if (isPinned) {
+                    card.style.border = '1px solid var(--accent-color)';
+                    card.style.boxShadow = '0 0 5px rgba(var(--accent-color), 0.2)';
+                }
+                const previewHtml = codex.preview ? `<div style="font-size: 11px; color: var(--text-secondary); margin-top: 5px; font-style: italic;">...${codex.preview}...</div>` : '';
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <div class="codex-card-title">${codex.title}</div>
+                            <div class="codex-card-desc">Нажмите чтобы просмотреть содержимое</div>
+                            ${previewHtml}
+                        </div>
+                        <button class="fav-btn" onclick="event.stopPropagation(); toggleFav('codex', '${codex.title.replace(/'/g, "\\'")}')" style="background:none; border:none; cursor:pointer; font-size:18px; color: ${isFav('codex', codex.title) ? 'var(--accent-color)' : 'var(--text-secondary)'}">★</button>
+                    </div>
+                `;
+                card.addEventListener('click', () => show_codex_content(codex));
+                container.appendChild(card);
+            });
+        }
+
+        let favsData = [];
+
+        function isFav(type, id1, id2='') {
+            return favsData.some(f => f.type === type && f.id1 === id1 && (type === 'codex' || f.id2 === id2));
+        }
+
+        function toggleFav(type, id1, id2='', codexDataRef=null, articleDataRef=null) {
+            const idx = favsData.findIndex(f => f.type === type && f.id1 === id1 && (type === 'codex' || f.id2 === id2));
+            if (idx >= 0) {
+                favsData.splice(idx, 1);
+            } else {
+                if (type === 'codex') {
+                    const c = codexData.find(x => x.title === id1) || codexDataRef;
+                    favsData.push({ type: 'codex', id1: id1, data: c });
+                } else {
+                    if (!articleDataRef) {
+                        const c = codexData.find(x => x.title === id1);
+                        if (c && c.articles) {
+                            articleDataRef = c.articles.find(a => a.title === id2);
+                        }
+                    }
+                    favsData.push({ type: 'article', id1: id1, id2: id2, codexTitle: id1, article: articleDataRef });
+                }
+            }
+            if (window.pywebview) {
+                window.pywebview.api.save_favs(favsData);
+            }
+            render_codex_list(document.getElementById('search-zb-input').value ? lastSearchResults : codexData);
+            if (document.getElementById('zb-content-view').style.display !== 'none') {
+                if (document.getElementById('search-inner-input').value) {
+                    document.getElementById('search-inner-input').dispatchEvent(new Event('input'));
+                } else {
+                    render_inner_articles(currentViewingCodex.articles);
+                }
+            }
+            render_favs();
+        }
+
+        function render_favs() {
+            const container = document.getElementById('fav-container');
+            container.innerHTML = '';
+            if (favsData.length === 0) {
+                container.innerHTML = '<div style="padding: 20px;">Нет избранного</div>';
+                return;
+            }
+            const codexFavs = favsData.filter(f => f.type === 'codex');
+            const articleFavs = favsData.filter(f => f.type === 'article');
+
+            if (codexFavs.length > 0) {
+                const header = document.createElement('h3');
+                header.innerText = 'Кодексы';
+                header.style.marginTop = '0';
+                header.style.marginBottom = '15px';
+                header.style.color = 'var(--text-secondary)';
+                container.appendChild(header);
+                
+                const codexGrid = document.createElement('div');
+                codexGrid.className = 'codex-list';
+                
+                codexFavs.forEach(fav => {
+                    const card = document.createElement('div');
+                    card.className = 'codex-card';
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <div class="codex-card-title">${fav.id1}</div>
+                                <div class="codex-card-desc">Кодекс</div>
+                            </div>
+                            <button class="fav-btn" onclick="event.stopPropagation(); toggleFav('codex', '${fav.id1.replace(/'/g, "\\'")}')" style="background:none; border:none; cursor:pointer; font-size:18px; color: var(--accent-color)">★</button>
+                        </div>
+                    `;
+                    card.addEventListener('click', () => {
+                        document.querySelector('[data-tab="tab-zb"]').click();
+                        show_codex_content(fav.data);
+                    });
+                    codexGrid.appendChild(card);
+                });
+                container.appendChild(codexGrid);
+            }
+
+            if (articleFavs.length > 0) {
+                const groups = {};
+                articleFavs.forEach(fav => {
+                    if (!groups[fav.codexTitle]) groups[fav.codexTitle] = [];
+                    groups[fav.codexTitle].push(fav);
+                });
+
+                for (const [codexTitle, favsInCodex] of Object.entries(groups)) {
+                    const header = document.createElement('h3');
+                    header.innerText = `Статьи из: ${codexTitle}`;
+                    header.style.marginTop = '25px';
+                    header.style.marginBottom = '15px';
+                    header.style.color = 'var(--text-secondary)';
+                    container.appendChild(header);
+
+                    const articleGrid = document.createElement('div');
+                    articleGrid.className = 'codex-list';
+
+                    favsInCodex.forEach(fav => {
+                        const card = document.createElement('div');
+                        card.className = 'codex-card';
+                        card.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <div class="codex-card-title">${fav.id2}</div>
+                                </div>
+                                <button class="fav-btn" onclick="event.stopPropagation(); toggleFav('article', '${fav.id1.replace(/'/g, "\\'")}', '${fav.id2.replace(/'/g, "\\'")}')" style="background:none; border:none; cursor:pointer; font-size:18px; color: var(--accent-color)">★</button>
+                            </div>
+                        `;
+                        card.addEventListener('click', () => {
+                            returnToFavsOnBack = true;
+                            document.querySelector('[data-tab="tab-zb"]').click();
+                            const pseudoCodex = { title: fav.codexTitle, articles: [fav.article] };
+                            show_codex_content(pseudoCodex);
+                        });
+                        articleGrid.appendChild(card);
+                    });
+                    container.appendChild(articleGrid);
+                }
+            }
+        }
+
+        let returnToFavsOnBack = false;
+        let currentViewingCodex = null;
+
+        function show_codex_content(codex) {
+            currentViewingCodex = codex;
+            document.getElementById('zb-list-view').style.display = 'none';
+            document.getElementById('zb-content-view').style.display = 'flex';
+            
+            document.getElementById('view-codex-title').innerText = codex.title;
+            document.getElementById('search-inner-input').value = '';
+            
+            document.getElementById('view-codex-articles').scrollTop = 0;
+            
+            render_inner_articles(codex.articles);
+        }
+        
+        function render_inner_articles(articles, isHighlighted=false) {
+            const codex = currentViewingCodex;
+            const articlesContainer = document.getElementById('view-codex-articles');
+            articlesContainer.innerHTML = '';
+            
+            if (!articles || articles.length === 0) {
+                 articlesContainer.innerHTML = '<div style="padding: 20px;">Нет содержимого</div>';
+                 return;
+            }
+            
+            articles.forEach(article => {
+                const block = document.createElement('div');
+                block.className = 'article-block';
+                const dTitle = isHighlighted ? article.displayTitle : article.title;
+                const dContent = isHighlighted ? article.displayContent : article.content;
+                block.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div class="article-title">${dTitle}</div>
+                        <button class="fav-btn" onclick="toggleFav('article', '${codex.title.replace(/'/g, "\\'").replace(/"/g, '&quot;')}', '${article.title.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')" style="background:none; border:none; cursor:pointer; font-size:18px; color: ${isFav('article', codex.title, article.title) ? 'var(--accent-color)' : 'var(--text-secondary)'}">★</button>
+                    </div>
+                    <div class="article-text">${dContent}</div>
+                `;
+                articlesContainer.appendChild(block);
+            });
+        }
+        
+        document.getElementById('search-inner-input').addEventListener('input', (e) => {
+            const q = e.target.value.toLowerCase().trim();
+            if (!currentViewingCodex) return;
+            
+            if (!q) {
+                render_inner_articles(currentViewingCodex.articles);
+                return;
+            }
+            
+            const words = q.split(/\s+/).filter(w => w.length > 0);
+            const filtered = currentViewingCodex.articles.filter(article => {
+                const text = (article.title + ' ' + article.content).toLowerCase();
+                return words.every(w => text.includes(w));
+            }).map(article => {
+                let hiTitle = article.title;
+                let hiContent = article.content;
+                words.forEach(w => {
+                    const regex = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                    hiTitle = hiTitle.replace(regex, match => `<span style="color: var(--accent-color)">${match}</span>`);
+                    if (hiContent) hiContent = hiContent.replace(regex, match => `<span style="color: var(--accent-color)">${match}</span>`);
+                });
+                return { ...article, displayTitle: hiTitle, displayContent: hiContent };
+            });
+            render_inner_articles(filtered, true);
+        });
+
+        document.getElementById('btn-back-to-list').addEventListener('click', () => {
+            if (returnToFavsOnBack) {
+                document.querySelector('[data-tab="tab-fav"]').click();
+                returnToFavsOnBack = false;
+            }
+            document.getElementById('zb-content-view').style.display = 'none';
+            document.getElementById('zb-list-view').style.display = 'block';
+        });
+
+        let lastSearchResults = [];
+
+        function performSearch() {
+            let qRaw = document.getElementById('search-zb-input').value.trim();
+            if (!qRaw) {
+                lastSearchResults = codexData;
+                render_codex_list(codexData);
+                return;
+            }
+            
+            let q = qRaw.toLowerCase();
+            let targetCodex = null;
+            const abbrevMatch = q.match(/(?:\s+|^)(пк|ук|ак|коап|дк)$/i);
+            if (abbrevMatch) {
+                targetCodex = abbrevMatch[1].toLowerCase();
+                q = q.slice(0, abbrevMatch.index).trim();
+            }
+            
+            let filteredCodexData = codexData;
+            if (targetCodex) {
+                filteredCodexData = codexData.filter(c => c.title.toLowerCase().includes(targetCodex));
+            }
+            
+            const words = q ? q.split(/\s+/) : [];
+            let results = [];
+            
+            filteredCodexData.forEach(codex => {
+                if (words.length === 0) {
+                    results.push({...codex, preview: null, score: 0});
+                    return;
+                }
+                
+                let titleMatch = words.every(w => codex.title.toLowerCase().includes(w));
+                if (titleMatch && (!codex.articles || codex.articles.length === 0)) {
+                    results.push({...codex, preview: null, score: 100});
+                } else if (codex.articles) {
+                    let matchingArticles = codex.articles.map(a => {
+                        let score = 0;
+                        const m = words.every(w => {
+                            let matchTitle = a.title.toLowerCase().includes(w);
+                            let matchContent = (a.content && a.content.toLowerCase().includes(w));
+                            if (matchTitle) score += 10;
+                            if (matchContent) score += 1;
+                            return matchTitle || matchContent;
+                        });
+                        return m ? { ...a, _score: score } : null;
+                    }).filter(Boolean);
+                    
+                    if (matchingArticles.length > 0) {
+                        // Sort articles by score
+                        matchingArticles.sort((a, b) => b._score - a._score);
+                        const best = matchingArticles[0];
+                        
+                        let previewHtml = "";
+                        if (best.content) {
+                            let idx = best.content.toLowerCase().indexOf(words[0]);
+                            if (idx === -1) idx = 0;
+                            const start = Math.max(0, idx - 40);
+                            const end = Math.min(best.content.length, idx + 80);
+                            previewHtml = best.content.substring(start, end).replace(/\n/g, ' ');
+                            
+                            // Highlight
+                            words.forEach(w => {
+                                const regex = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+                                previewHtml = previewHtml.replace(regex, match => `<span style="color: var(--accent-color)">${match}</span>`);
+                            });
+                        }
+                        
+                        results.push({
+                            title: codex.title,
+                            articles: matchingArticles, // Only matching
+                            preview: previewHtml,
+                            score: best._score
+                        });
+                    }
+                }
+            });
+            
+            results.sort((a, b) => b.score - a.score);
+            lastSearchResults = results;
+            render_codex_list(results);
+        }
+
+        document.getElementById('search-zb-btn').addEventListener('click', performSearch);
+        document.getElementById('search-zb-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') performSearch();
+        });
+        document.getElementById('search-zb-input').addEventListener('input', (e) => {
+            if (e.target.value.length >= 3 || e.target.value.length === 0) {
+                performSearch();
+            }
+        });
+
+        // Notes
+        document.getElementById('btn-add-note').addEventListener('click', () => {
+            const note = { id: Date.now(), title: "Новая заметка", content: "" };
+            notesData.push(note);
+            render_notes();
+            if (window.pywebview) window.pywebview.api.save_notes(notesData);
+        });
+
+        function render_notes() {
+            const container = document.getElementById('notes-container');
+            container.innerHTML = '';
+            notesData.forEach(note => {
+                const card = document.createElement('div');
+                card.className = 'note-card';
+                card.innerHTML = `
+                    <div class="note-header">
+                        <span class="note-title" contenteditable="true" data-id="${note.id}" onblur="updateNoteTitle(this)">${note.title}</span>
+                        <div class="note-actions">
+                            <button class="note-action-btn" onclick="openNoteWindow(${note.id})" title="Закрепить на экране">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                            </button>
+                            <button class="note-action-btn" onclick="deleteNote(${note.id})" title="Удалить">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="note-content" contenteditable="true" data-id="${note.id}" onblur="updateNoteContent(this)">${note.content}</div>
+                `;
+                container.appendChild(card);
+            });
+        }
+        
+        window.openNoteWindow = function(id) {
+            const note = notesData.find(n => n.id === id);
+            if (note && window.pywebview) {
+                window.pywebview.api.open_note_window(note.id, note.title, note.content);
+            }
+        }
+        
+        window.updateNoteTitle = function(elem) {
+            const id = parseInt(elem.getAttribute('data-id'));
+            const note = notesData.find(n => n.id === id);
+            if (note) { note.title = elem.innerText; if (window.pywebview) window.pywebview.api.save_notes(notesData); }
+        }
+        window.updateNoteContent = function(elem) {
+            const id = parseInt(elem.getAttribute('data-id'));
+            const note = notesData.find(n => n.id === id);
+            if (note) { note.content = elem.innerText; if (window.pywebview) window.pywebview.api.save_notes(notesData); }
+        }
+        window.deleteNote = function(id) {
+            notesData = notesData.filter(n => n.id !== id);
+            render_notes();
+            if (window.pywebview) window.pywebview.api.save_notes(notesData);
+        }
+
+        // Setup
+        window.addEventListener('pywebviewready', function() {
+            load_codex_list();
+            window.pywebview.api.get_notes().then(data => {
+                notesData = data || [];
+                render_notes();
+            });
+            window.pywebview.api.get_settings().then(data => {
+                if(data.hotkey) document.getElementById('setting-hotkey').innerText = data.hotkey;
+                if(data.server) document.getElementById('setting-server').value = data.server;
+                if(data.groq_token) document.getElementById('setting-groq-token').value = data.groq_token;
+            });
+        });
+        // Chat state
+        let chatHistory = [];
+        
+        document.getElementById('btn-ai-send').addEventListener('click', send_chat);
+        document.getElementById('ai-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') send_chat();
+        });
+        
+        function append_message(role, content) {
+            const container = document.getElementById('chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg ${role === 'user' ? 'user' : 'ai'}`;
+            msgDiv.innerText = content;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function send_chat() {
+            const input = document.getElementById('ai-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            input.value = '';
+            input.disabled = true;
+            document.getElementById('btn-ai-send').disabled = true;
+            
+            append_message('user', text);
+            chatHistory.push({"role": "user", "content": text});
+            
+            if (window.pywebview) {
+                window.pywebview.api.ask_ai(chatHistory).then(res => {
+                    input.disabled = false;
+                    document.getElementById('btn-ai-send').disabled = false;
+                    input.focus();
+                    
+                    if (res.error) {
+                        append_message('ai', 'Ошибка: ' + res.error);
+                        chatHistory.pop(); // Remove user message on error
+                    } else {
+                        append_message('ai', res.reply);
+                        chatHistory.push({"role": "assistant", "content": res.reply});
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

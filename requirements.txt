@@ -1,0 +1,7 @@
+pywebview
+keyboard
+pystray
+Pillow
+beautifulsoup4
+requests
+pynput

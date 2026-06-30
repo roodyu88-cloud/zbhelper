@@ -1,6 +1,7 @@
 [Setup]
+#define MyAppVersion "2.0.0"
 AppName=ZBHelper
-AppVersion=1.5.0
+AppVersion={#MyAppVersion}
 DefaultDirName={pf}\ZBHelper
 DefaultGroupName=ZBHelper
 OutputDir=.\Output

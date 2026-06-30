@@ -73,10 +73,12 @@ def parse_server_zb(server_url):
             if title_a and title_a.text.strip():
                 title = title_a.text.strip()
                 t_lower = title.lower()
-                if 'уголовн' in t_lower: title = "Уголовный Кодекс (УК)"
+                if 'уголовн' in t_lower and ('администрат' in t_lower or 'правонаруш' in t_lower): title = "Уголовно-Административный Кодекс (УАК)"
+                elif 'уголовн' in t_lower: title = "Уголовный Кодекс (УК)"
                 elif 'администрат' in t_lower or 'правонаруш' in t_lower: title = "Кодекс об Административных Правонарушениях (АК/КОАП)"
                 elif 'дорожн' in t_lower: title = "Дорожный Кодекс (ДК)"
                 elif 'процессуальн' in t_lower: title = "Процессуальный Кодекс (ПК)"
+                elif 'трудов' in t_lower: title = "Трудовой Кодекс (ТК)"
                 
                 thread_url = BASE_URL + title_a['href']
                 content = fetch_thread_content(thread_url)

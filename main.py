@@ -9,6 +9,44 @@ import scraper
 import sys
 import time
 import ctypes
+import tkinter as tk
+
+class WatermarkOverlay:
+    def __init__(self):
+        self.root = None
+        self.is_running = False
+
+    def start(self):
+        self.is_running = True
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        self.root = tk.Tk()
+        self.root.overrideredirect(True)
+        self.root.attributes("-alpha", 0.2)
+        self.root.attributes("-transparentcolor", "black")
+        self.root.attributes("-topmost", True)
+        self.root.attributes("-toolwindow", True)
+        self.root.geometry("+20+20")
+        
+        hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+        styles = ctypes.windll.user32.GetWindowLongW(hwnd, -20)
+        ctypes.windll.user32.SetWindowLongW(hwnd, -20, styles | 0x00080000 | 0x00000020)
+        
+        label = tk.Label(self.root, text="@ZBH_gta5rp", font=("Arial", 18, "bold", "italic"), fg="white", bg="black")
+        label.pack()
+        self.root.mainloop()
+
+    def hide(self):
+        if self.root:
+            self.root.after(0, self.root.withdraw)
+            
+    def show(self):
+        if self.root:
+            self.root.after(0, self.root.deiconify)
+
+watermark_overlay = WatermarkOverlay()
+watermark_overlay.start()
 
 def get_base_path():
     if getattr(sys, 'frozen', False):
@@ -87,6 +125,69 @@ class Api:
         import webbrowser
         webbrowser.open(url)
         
+    def encode_note(self, text):
+        import base64
+        import zlib
+        try:
+            return base64.urlsafe_b64encode(zlib.compress(text.encode('utf-8'))).decode('utf-8')
+        except:
+            return ""
+
+    def decode_note(self, b64_text):
+        import base64
+        import zlib
+        try:
+            return zlib.decompress(base64.urlsafe_b64decode(b64_text)).decode('utf-8')
+        except Exception as e:
+            return f"Ошибка импорта (неверный код)"
+            
+    def fetch_cloud_data(self):
+        import requests
+        try:
+            url = "https://raw.githubusercontent.com/roodyu88-cloud/zbhelper/main/cloud_data.json"
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200:
+                self.cloud_data = resp.json()
+        except:
+            pass
+        return self.cloud_data
+
+    def verify_watermark_key(self, key):
+        import hashlib
+        global watermark_overlay
+        try:
+            h = hashlib.sha256(key.encode()).hexdigest()
+            print("Client key hash:", h)
+            if not self.cloud_data:
+                self.fetch_cloud_data()
+            if self.cloud_data and 'watermark_hashes' in self.cloud_data:
+                if h in self.cloud_data['watermark_hashes']:
+                    self.settings['watermark_verified'] = True
+                    self.save_settings()
+                    watermark_overlay.hide()
+                    return True
+            return False
+        except:
+            return False
+        
+    def copy_to_clipboard(self, text):
+        import subprocess, base64
+        try:
+            b64 = base64.b64encode(text.encode('utf-8')).decode('utf-8')
+            cmd = f"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{b64}')) | Set-Clipboard"
+            subprocess.run(['powershell', '-command', cmd], creationflags=0x08000000)
+            return True
+        except:
+            return False
+
+    def get_from_clipboard(self):
+        import subprocess
+        try:
+            res = subprocess.run(['powershell', '-command', 'Get-Clipboard'], capture_output=True, text=True, creationflags=0x08000000)
+            return res.stdout.strip()
+        except:
+            return ""
+
     def resize_note_window(self, title, width, height):
         import webview
         for w in webview.windows:
@@ -104,13 +205,13 @@ class Api:
             <meta charset="UTF-8">
             <style>
                 body {{ background: rgba(17,17,17,0.9); color: #fff; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: background 0.2s; }}
-                .titlebar {{ background: #111; height: 30px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; -webkit-app-region: drag; border-bottom: 1px solid #333; cursor: pointer; }}
-                .titlebar span {{ font-size: 12px; font-weight: bold; pointer-events: none; }}
+                .titlebar {{ background: rgba(17,17,17,0.9); height: 30px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; -webkit-app-region: drag; border-bottom: 1px solid #333; cursor: pointer; }}
+                .titlebar span {{ font-size: 12px; font-weight: bold; pointer-events: none; transition: color 0.2s; }}
                 .close-btn {{ background: none; border: none; color: #999; cursor: pointer; -webkit-app-region: no-drag; padding: 5px; }}
                 .close-btn:hover {{ color: #ff4444; }}
-                .controls {{ padding: 0 10px; background: #1a1a1a; display: flex; align-items: center; gap: 10px; font-size: 11px; border-bottom: none; -webkit-app-region: no-drag; max-height: 0px; overflow: hidden; transition: all 0.3s ease; }}
+                .controls {{ padding: 0 10px; background: transparent; display: flex; align-items: center; gap: 10px; font-size: 11px; border-bottom: none; -webkit-app-region: no-drag; max-height: 0px; overflow: hidden; transition: all 0.3s ease; color: inherit; }}
                 .controls input[type="range"] {{ -webkit-app-region: no-drag; }}
-                .content {{ padding: 15px; flex: 1; overflow-y: auto; font-size: 14px; line-height: 1.5; }}
+                .content {{ padding: 15px; flex: 1; overflow-y: auto; font-size: 14px; line-height: 1.5; color: inherit; transition: color 0.2s; }}
                 ::-webkit-scrollbar {{ width: 6px; }}
                 ::-webkit-scrollbar-track {{ background: transparent; }}
                 ::-webkit-scrollbar-thumb {{ background: #333; }}
@@ -137,15 +238,29 @@ class Api:
                         }}
                     }}
                 }}
+                function updateOpacity(val) {{
+                    let textAlpha = 1.0 - (1.0 - val) / 2;
+                    document.body.style.background = `rgba(17,17,17,${{val}})`;
+                    document.getElementById('titlebar').style.background = `rgba(17,17,17,${{val}})`;
+                    document.body.style.color = `rgba(255,255,255,${{textAlpha}})`;
+                    
+                    // We also save it through python api
+                    if(window.pywebview) window.pywebview.api.set_note_opacity('{title}', val);
+                }}
             </script>
         </head>
         <body>
-            <div class="titlebar pywebview-drag-region">
+            <div class="titlebar pywebview-drag-region" id="titlebar">
                 <span onmousedown="onTitleDown(event)" onmouseup="onTitleUp(event)" style="pointer-events: auto; cursor: pointer; display: inline-block; padding: 5px 0;">{title}</span>
-                <button class="close-btn" onclick="if(window.pywebview) window.pywebview.api.close_note_window('{title}')">✕</button>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <button class="close-btn" id="lock-btn" onclick="toggleLock()" title="Блокировать перемещение и размер">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </button>
+                    <button class="close-btn" onclick="if(window.pywebview) window.pywebview.api.close_note_window('{title}')" style="display: flex; align-items: center; justify-content: center;">✖</button>
+                </div>
             </div>
             <div id="controls" class="controls">
-                Прозрачность: <input type="range" style="-webkit-app-region: no-drag;" min="10" max="100" value="90" onchange="if(window.pywebview) window.pywebview.api.set_note_opacity('{title}', this.value/100)">
+                Прозрачность: <input type="range" style="-webkit-app-region: no-drag;" min="10" max="100" value="90" oninput="updateOpacity(this.value/100)">
             </div>
             <div class="content">{content}</div>
             <div id="resizer" class="resizer"></div>
@@ -153,6 +268,24 @@ class Api:
                 let isResizing = false;
                 let rStartX, rStartY, startW, startH;
                 let resizeTimer = null;
+                let isLocked = false;
+
+                document.getElementById('titlebar').addEventListener('mousedown', function(e) {{
+                    if(isLocked && !e.target.closest('button')) {{
+                        e.stopPropagation();
+                    }}
+                }});
+
+                function toggleLock() {{
+                    isLocked = !isLocked;
+                    const tb = document.getElementById('titlebar');
+                    document.getElementById('resizer').style.display = isLocked ? 'none' : 'block';
+                    document.getElementById('lock-btn').style.color = isLocked ? '#9d7cfa' : 'inherit';
+                    
+                    // Change cursor behavior
+                    tb.style.cursor = isLocked ? 'default' : 'move';
+                    tb.querySelector('span').style.cursor = isLocked ? 'default' : 'pointer';
+                }}
                 document.getElementById('resizer').addEventListener('mousedown', function(e) {{
                     isResizing = true;
                     rStartX = e.screenX;
@@ -178,7 +311,7 @@ class Api:
         </body>
         </html>
         """
-        webview.create_window(f"Заметка: {title}", html=html, width=300, height=300, on_top=True, frameless=True, transparent=False, js_api=self, easy_drag=False, resizable=True)
+        webview.create_window(f"Заметка: {title}", html=html, width=300, height=300, on_top=True, frameless=True, transparent=True, js_api=self, easy_drag=False, resizable=True)
 
     def close_note_window(self, title):
         for w in webview.windows:
@@ -187,18 +320,7 @@ class Api:
                 break
 
     def set_note_opacity(self, title, opacity):
-        import ctypes
-        import win32con
-        import win32gui
-        hwnd = win32gui.FindWindow(None, f"Заметка: {title}")
-        if hwnd:
-            try:
-                opacity_val = int(float(opacity) * 255)
-                ex_style = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
-                win32gui.SetWindowLong(hwnd, win32con.GWL_EXSTYLE, ex_style | win32con.WS_EX_LAYERED)
-                ctypes.windll.user32.SetLayeredWindowAttributes(hwnd, 0, opacity_val, win32con.LWA_ALPHA)
-            except Exception as e:
-                pass
+        pass
 
     def update_setting(self, key, value):
         self.settings[key] = value
@@ -382,10 +504,13 @@ def toggle_window():
             window_is_hidden = False
             set_window_opacity(api.settings.get('opacity', 0.95))
             log_debug("shown window")
+            if not api.settings.get('watermark_verified', False):
+                watermark_overlay.show()
         else:
             api._window.hide()
             window_is_hidden = True
             log_debug("hid window")
+            watermark_overlay.hide()
     except Exception as e:
         log_debug("error in toggle_window: " + str(e))
 
@@ -464,6 +589,8 @@ if __name__ == '__main__':
     
     def on_shown():
         set_window_opacity(api.settings.get('opacity', 0.95))
+        if api.settings.get('watermark_verified', False):
+            watermark_overlay.hide()
         
     api._window.events.shown += on_shown
     

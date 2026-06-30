@@ -1,6 +1,6 @@
 [Setup]
 AppName=ZBHelper
-AppVersion=1.0
+AppVersion=1.5.0
 DefaultDirName={pf}\ZBHelper
 DefaultGroupName=ZBHelper
 OutputDir=.\Output

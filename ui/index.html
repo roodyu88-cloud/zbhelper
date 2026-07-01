@@ -1340,7 +1340,10 @@
             let filteredFavs = favsData;
             if (currentFavSearchQuery) {
                 const q = currentFavSearchQuery.toLowerCase();
-                filteredFavs = favsData.filter(f => f.title.toLowerCase().includes(q));
+                filteredFavs = favsData.filter(f => {
+                    let title = f.type === 'codex' ? f.id1 : f.id2;
+                    return title && title.toLowerCase().includes(q);
+                });
             }
             
             if (filteredFavs.length === 0) {
@@ -1374,6 +1377,7 @@
                         </div>
                     `;
                     card.addEventListener('click', () => {
+                        returnToFavsOnBack = true;
                         document.querySelector('[data-tab="tab-zb"]').click();
                         show_codex_content(fav.data);
                     });

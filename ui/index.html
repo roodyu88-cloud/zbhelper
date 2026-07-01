@@ -1330,7 +1330,7 @@
             if (e.key === 'Enter') performFavSearch();
         });
         document.getElementById('search-fav-input').addEventListener('input', () => {
-            if (document.getElementById('search-fav-input').value.trim() === '') performFavSearch();
+            performFavSearch();
         });
 
         function render_favs() {
@@ -1339,10 +1339,22 @@
             
             let filteredFavs = favsData;
             if (currentFavSearchQuery) {
-                const q = currentFavSearchQuery.toLowerCase();
+                let q = currentFavSearchQuery.toLowerCase();
+                let targetCodex = null;
+                const abbrevMatch = q.match(/(?:\s+|^)(пк|ук|ак|коап|дк|тк)$/i);
+                if (abbrevMatch) {
+                    targetCodex = abbrevMatch[1].toLowerCase();
+                    q = q.slice(0, abbrevMatch.index).trim();
+                }
+                const words = q ? q.split(/\s+/) : [];
                 filteredFavs = favsData.filter(f => {
-                    let title = f.type === 'codex' ? f.id1 : f.id2;
-                    return title && title.toLowerCase().includes(q);
+                    if (targetCodex && !f.id1.toLowerCase().includes(targetCodex)) return false;
+                    if (words.length === 0) return true;
+                    return words.every(w => {
+                        let titleMatch = (f.type === 'codex' ? f.id1 : f.id2).toLowerCase().includes(w);
+                        let contentMatch = (f.type === 'article' && f.article && f.article.content && f.article.content.toLowerCase().includes(w));
+                        return titleMatch || contentMatch;
+                    });
                 });
             }
             
@@ -1517,7 +1529,7 @@
             
             let q = qRaw.toLowerCase();
             let targetCodex = null;
-            const abbrevMatch = q.match(/(?:\s+|^)(пк|ук|ак|коап|дк)$/i);
+            const abbrevMatch = q.match(/(?:\s+|^)(пк|ук|ак|коап|дк|тк)$/i);
             if (abbrevMatch) {
                 targetCodex = abbrevMatch[1].toLowerCase();
                 q = q.slice(0, abbrevMatch.index).trim();

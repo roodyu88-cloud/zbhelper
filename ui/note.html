@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { background: transparent !important; color: #fff; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #app-container { background: #111111; height: 100vh; display: flex; flex-direction: column; transition: background 0.2s; animation: fadeIn 0.2s ease-out forwards; }
+        .titlebar { background: transparent; height: 30px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; -webkit-app-region: drag; border-bottom: 1px solid #333; cursor: pointer; }
+        .titlebar span { font-size: 12px; font-weight: bold; pointer-events: none; transition: color 0.2s; }
+        .close-btn { background: none; border: none; color: #999; cursor: pointer; -webkit-app-region: no-drag; padding: 5px; display: flex; align-items: center; justify-content: center; height: 24px; width: 24px; }
+        .close-btn:hover { color: #ff4444; }
+        .controls { padding: 0 10px; background: transparent; display: flex; align-items: center; gap: 10px; font-size: 11px; border-bottom: none; -webkit-app-region: no-drag; max-height: 0px; overflow: hidden; transition: all 0.3s ease; color: inherit; }
+        .controls input[type="range"] { -webkit-app-region: no-drag; }
+        .content { padding: 15px; flex: 1; overflow-y: auto; font-size: 14px; line-height: 1.5; color: inherit; transition: color 0.2s; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+        .resizer { width: 15px; height: 15px; position: absolute; bottom: 0; right: 0; cursor: se-resize; background: transparent; -webkit-app-region: no-drag; z-index: 9999; }
+        .resizer::after { content: ''; position: absolute; bottom: 2px; right: 2px; width: 0; height: 0; border-style: solid; border-width: 0 0 10px 10px; border-color: transparent transparent #555 transparent; }
+    
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        #app-container { animation: fadeIn 0.2s ease-out forwards; }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div class="titlebar pywebview-drag-region" id="titlebar">
+            <span onmousedown="onTitleDown(event)" onmouseup="onTitleUp(event)" style="pointer-events: auto; cursor: pointer; display: inline-block; padding: 5px 0;" id="note-title">Заметка</span>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <button class="close-btn" id="lock-btn" onclick="toggleLock()" title="Запретить перемещение и всегда поверх окон" style="display:flex; align-items:center; justify-content:center;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </button>
+                <button class="close-btn" onclick="if(window.pywebview) window.pywebview.api.close_note_window(currentTitle)" style="display:flex; align-items:center; justify-content:center;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+        </div>
+        <div id="controls" class="controls">
+            Прозрачность: <input type="range" style="-webkit-app-region: no-drag;" min="10" max="100" value="90" oninput="updateOpacity(this.value/100)">
+        </div>
+        <div class="content" id="note-content">Загрузка...</div>
+        <div id="resizer" class="resizer"></div>
+    </div>
+    <script>
+        let currentTitle = '';
+        let startX, startY;
+        
+        function getQueryParam(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+
+        window.onload = function() {
+            currentTitle = decodeURIComponent(getQueryParam('title'));
+            document.getElementById('note-title').innerText = currentTitle;
+            if (window.pywebview) window.pywebview.api.set_note_opacity(currentTitle, 0.9);
+            
+            // We wait for pywebview to inject api
+            const checkApi = setInterval(() => {
+                if (window.pywebview && window.pywebview.api) {
+                    clearInterval(checkApi);
+                    window.pywebview.api.get_note_by_title(currentTitle).then(content => {
+                        document.getElementById('note-content').innerHTML = content;
+                    });
+                }
+            }, 50);
+        };
+
+        function onTitleDown(e) {
+            startX = e.clientX;
+            startY = e.clientY;
+        }
+        function onTitleUp(e) {
+            if (Math.abs(e.clientX - startX) < 3 && Math.abs(e.clientY - startY) < 3) {
+                const c = document.getElementById('controls');
+                if (c.style.maxHeight === '0px' || c.style.maxHeight === '') {
+                    c.style.maxHeight = '50px';
+                    c.style.padding = '5px 10px';
+                    c.style.borderBottom = '1px solid #333';
+                } else {
+                    c.style.maxHeight = '0px';
+                    c.style.padding = '0 10px';
+                    c.style.borderBottom = 'none';
+                }
+            }
+        }
+        function updateOpacity(val) {
+            document.getElementById('app-container').style.background = `rgba(18, 18, 18, ${val})`;
+            const textAlpha = Math.max(0.2, val);
+            document.body.style.color = `rgba(255,255,255,${textAlpha})`;
+            if(window.pywebview) window.pywebview.api.set_note_opacity(currentTitle, val);
+        }
+
+        let isResizing = false;
+        let rStartX, rStartY, startW, startH;
+        let resizeTimer = null;
+        let isLocked = false;
+        let isPinned = false;
+
+        document.getElementById('titlebar').addEventListener('mousedown', function(e) {
+            if(isLocked && !e.target.closest('button')) {
+                e.stopPropagation();
+            }
+        });
+
+        function toggleLock() {
+            isLocked = !isLocked;
+            const tb = document.getElementById('titlebar');
+            document.getElementById('resizer').style.display = isLocked ? 'none' : 'block';
+            document.getElementById('lock-btn').style.color = isLocked ? '#9d7cfa' : '#999';
+            
+            tb.style.cursor = isLocked ? 'default' : 'move';
+            tb.querySelector('span').style.cursor = isLocked ? 'default' : 'pointer';
+            if(window.pywebview) window.pywebview.api.toggle_note_topmost(currentTitle, isLocked);
+        }
+
+        document.getElementById('resizer').addEventListener('mousedown', function(e) {
+            isResizing = true;
+            rStartX = e.screenX;
+            rStartY = e.screenY;
+            startW = window.innerWidth;
+            startH = window.innerHeight;
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', function(e) {
+            if (!isResizing) return;
+            if(resizeTimer) return;
+            resizeTimer = setTimeout(() => {
+                const newW = Math.max(260, startW + (e.screenX - rStartX));
+                const newH = Math.max(200, startH + (e.screenY - rStartY));
+                if(window.pywebview) window.pywebview.api.resize_note_window(currentTitle, newW, newH);
+                resizeTimer = null;
+            }, 16);
+        });
+        window.addEventListener('mouseup', function(e) {
+            isResizing = false;
+        });
+    </script>
+</body>
+</html>

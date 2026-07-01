@@ -3,3 +3,5 @@ dist/
 Output/
 __pycache__/
 *.spec
+cloud_data.json
+patch*.py

@@ -44,6 +44,7 @@
             height: 100%;
             display: flex;
             flex-direction: column;
+            animation: fadeIn 0.2s ease-out forwards;
         }
 
         .titlebar {
@@ -182,6 +183,22 @@
 
         .tab-content.active {
             display: flex;
+            animation: fadeIn 0.2s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(5px); }
+        }
+
+        /* Modals and view transitions */
+        #supporters-modal, #support-help-modal, #watermark, #zb-content-view, #zb-list-view, #confirm-modal, #groq-help-modal {
+            animation: fadeIn 0.15s ease-out forwards;
         }
 
         /* ZB Tab */
@@ -564,6 +581,14 @@
             gap: 10px;
             pointer-events: none;
         }
+        @keyframes slideInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideOutDown {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(20px); }
+        }
         .toast {
             background: rgba(20, 20, 20, 0.95);
             color: #fff;
@@ -590,7 +615,7 @@
         <header class="titlebar pywebview-drag-region">
             <div class="titlebar-left">
                 <div class="logo">ZBH</div>
-                <div class="app-title">ZBHelper <span style="font-size: 0.5em; opacity: 0.7; margin-left: 5px;">v. 2.5.0</span></div>
+                <div class="app-title">ZBHelper <span style="font-size: 0.5em; opacity: 0.7; margin-left: 5px;">v. 2.7.5</span></div>
             </div>
             <div class="titlebar-right">
                 <button class="btn-close-app" id="btn-close" aria-label="Скрыть" title="Скрыть (PgDown)">
@@ -659,9 +684,12 @@
                     </div>
                 </div>
 
-                <!-- Tab: Избранное -->
+                <!-- Tab: Избранные -->
                 <div class="tab-content" id="tab-fav">
-                    <h2 style="margin-bottom: 20px; font-size: 18px;">Избранное</h2>
+                    <div class="search-container">
+                        <input type="text" class="search-input" id="search-fav-input" placeholder="Поиск по избранным:">
+                        <button class="search-btn" id="search-fav-btn">Искать</button>
+                    </div>
                     <div id="fav-container">
                         <!-- Fav items go here -->
                     </div>
@@ -773,7 +801,7 @@
                             </div>
                             <div class="setting-control" style="display: flex; gap: 5px; align-items: center;">
                                 <input type="password" id="setting-watermark-key" placeholder="До 16 символов..." style="width: 200px; background-color: rgba(26, 26, 26, 0.8); border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 12px; font-size: 14px; outline: none;" maxlength="16">
-                                <button class="btn-outline" onclick="verifyWatermarkKey()">ОК</button>
+                                <button class="btn-outline" id="btn-watermark-action" onclick="verifyWatermarkKey()">ОК</button>
                             </div>
                         </div>
                     </div>
@@ -860,6 +888,25 @@
     </div>
 
     <script>
+        function closeWindowWithAnim() {
+            const appWindow = document.querySelector('.app-window');
+            if (appWindow) {
+                appWindow.style.animation = 'fadeOut 0.2s ease-in forwards';
+                setTimeout(() => {
+                    if(window.pywebview) window.pywebview.api.hide_window();
+                }, 180);
+            } else {
+                if(window.pywebview) window.pywebview.api.hide_window();
+            }
+        }
+        
+        function openWindowWithAnim() {
+            document.querySelector('.app-window').style.animation = 'none';
+            // trigger reflow
+            void document.querySelector('.app-window').offsetWidth;
+            document.querySelector('.app-window').style.animation = 'fadeIn 0.2s ease-out forwards';
+        }
+
         function showToast(message, duration = 3000) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -874,7 +921,8 @@
             
             setTimeout(() => {
                 toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
+                toast.classList.add('hide');
+                setTimeout(() => toast.remove(), 250);
             }, duration);
         }
 
@@ -942,6 +990,11 @@
                     document.getElementById('db-status').innerText = "Синхронизировано";
                     progressContainer.style.display = 'none';
                     btn.innerText = "ОБНОВИТЬ БАЗУ";
+                    window.pywebview.api.get_settings().then(settings => {
+                        if (settings.current_parsed_server_name) {
+                            document.getElementById('search-zb-input').placeholder = `Поиск по серверу ${settings.current_parsed_server_name}:`;
+                        }
+                    });
                     load_codex_list();
                 }).catch(err => {
                     document.getElementById('db-status').innerText = "Ошибка парсинга";
@@ -970,6 +1023,22 @@
                     if (settings.accent_color) {
                         document.getElementById('setting-accent-color').value = settings.accent_color;
                         document.documentElement.style.setProperty('--accent-color', settings.accent_color);
+                    }
+                    if (settings.current_parsed_server_name) {
+                        document.getElementById('search-zb-input').placeholder = `Поиск по серверу ${settings.current_parsed_server_name}:`;
+                        document.getElementById('search-fav-input').placeholder = `Поиск по избранным сервера ${settings.current_parsed_server_name}:`;
+                    }
+                    
+                    if (settings.watermark_verified && settings.watermark_key) {
+                        const input = document.getElementById('setting-watermark-key');
+                        input.value = settings.watermark_key;
+                        const btn = document.getElementById('btn-watermark-action');
+                        if(btn) {
+                            btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="square"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                            btn.style.color = '#ff6b6b';
+                            btn.style.borderColor = '#ff6b6b';
+                            btn.onclick = resetWatermarkKey;
+                        }
                     }
                     
                     // Fetch servers
@@ -1059,7 +1128,7 @@
         };
 
         function showSupportersModal() {
-            showConfirm("Подключение к сети", "Сейчас ZBHelper отправит запрос в сеть (на GitHub), чтобы загрузить список.\nПродолжить?").then(confirmed => {
+            showConfirm("Подключение к сети", "Ваш ZBHelper отправит запрос в сеть (на GitHub), чтобы получить список.\nПродолжить?").then(confirmed => {
                 if(!confirmed) return;
                 const listDiv = document.getElementById('supporters-content');
                 listDiv.innerHTML = '<div style="text-align: center; color: var(--text-secondary); margin: 20px 0;">Загрузка...</div>';
@@ -1072,7 +1141,12 @@
                             html += '<div style="margin-bottom: 15px;"><strong>Разработчик:</strong><br><span style="color: var(--accent-color);">' + (data.supporters.dev || "roodyu") + '</span></div>';
                             html += '<div style="margin-bottom: 15px;"><strong>Донатеры:</strong><br>';
                             if(data.supporters.donators && data.supporters.donators.length > 0) {
-                                html += data.supporters.donators.map(d => `<span style="color: #4caf50;">${d.name || d}</span>`).join('<br>');
+                                html += data.supporters.donators.map(d => {
+                                    if (typeof d === 'string') return `<span style="color: #4caf50;">${d}</span>`;
+                                    let name = d.name || "Аноним";
+                                    let amount = d.amount ? ` <span style="color: #888888; font-weight: normal;">(${d.amount.toFixed ? d.amount.toFixed(2) : d.amount} RUB)</span>` : "";
+                                    return `<span style="color: #4caf50;">${name}</span>${amount}`;
+                                }).join('<br>');
                             } else {
                                 html += '<span style="color: var(--text-secondary);">Пока никого нет</span>';
                             }
@@ -1084,6 +1158,7 @@
                                 html += '<span style="color: var(--text-secondary);">Пока никого нет</span>';
                             }
                             html += '</div>';
+                            html += '<div style="margin-top: 25px; text-align: center;"><a href="#" onclick="window.pywebview.api.open_url(\'https://www.donationalerts.com/r/roodyu\'); return false;" style="color: var(--accent-color); text-decoration: underline; font-weight: bold; font-size: 14px; cursor: pointer;">Поддержать проект на DonationAlerts</a></div>';
                         } else {
                             html = '<div style="color: #ff6b6b;">Ошибка загрузки данных.</div>';
                         }
@@ -1172,12 +1247,37 @@
                             showToast("Поддержка подтверждена! Водяной знак отключен.");
                             document.getElementById('watermark').style.display = 'none';
                             localStorage.setItem('watermark_verified', 'true');
+                            const btn = document.getElementById('btn-watermark-action');
+                            if(btn) {
+                                btn.innerHTML = '<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" stroke=\"currentColor\" stroke-width=\"2\" fill=\"none\" stroke-linecap=\"square\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"></line><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"></line></svg>';
+                                btn.style.color = '#ff6b6b';
+                                btn.style.borderColor = '#ff6b6b';
+                                btn.onclick = resetWatermarkKey;
+                            }
                         } else {
                             showToast("Неверный ключ!");
                         }
                     });
                 }
             });
+        }
+
+        
+        function resetWatermarkKey() {
+            if(window.pywebview) {
+                window.pywebview.api.reset_watermark().then(() => {
+                    document.getElementById('setting-watermark-key').value = '';
+                    const btn = document.getElementById('btn-watermark-action');
+                    if(btn) {
+                        btn.innerHTML = 'ОК';
+                        btn.style.color = '';
+                        btn.style.borderColor = '';
+                        btn.onclick = verifyWatermarkKey;
+                    }
+                    showToast("Водяной знак снова включен.");
+                    localStorage.removeItem('watermark_verified');
+                });
+            }
         }
 
         let favsData = [];
@@ -1218,15 +1318,37 @@
             render_favs();
         }
 
+        let currentFavSearchQuery = "";
+        
+        function performFavSearch() {
+            currentFavSearchQuery = document.getElementById('search-fav-input').value.trim();
+            render_favs();
+        }
+        
+        document.getElementById('search-fav-btn').addEventListener('click', performFavSearch);
+        document.getElementById('search-fav-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') performFavSearch();
+        });
+        document.getElementById('search-fav-input').addEventListener('input', () => {
+            if (document.getElementById('search-fav-input').value.trim() === '') performFavSearch();
+        });
+
         function render_favs() {
             const container = document.getElementById('fav-container');
             container.innerHTML = '';
-            if (favsData.length === 0) {
+            
+            let filteredFavs = favsData;
+            if (currentFavSearchQuery) {
+                const q = currentFavSearchQuery.toLowerCase();
+                filteredFavs = favsData.filter(f => f.title.toLowerCase().includes(q));
+            }
+            
+            if (filteredFavs.length === 0) {
                 container.innerHTML = '<div style="padding: 20px;">Нет избранного</div>';
                 return;
             }
-            const codexFavs = favsData.filter(f => f.type === 'codex');
-            const articleFavs = favsData.filter(f => f.type === 'article');
+            const codexFavs = filteredFavs.filter(f => f.type === 'codex');
+            const articleFavs = filteredFavs.filter(f => f.type === 'article');
 
             if (codexFavs.length > 0) {
                 const header = document.createElement('h3');

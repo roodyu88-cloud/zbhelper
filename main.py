@@ -189,10 +189,13 @@ class Api:
 
     def resize_note_window(self, title, width, height):
         import webview
-        for w in webview.windows:
-            if w.title == f"Заметка: {title}":
-                w.resize(int(width), int(height))
-                break
+        import threading
+        def _resize():
+            for w in webview.windows:
+                if w.title == f"Заметка: {title}":
+                    w.resize(int(width), int(height))
+                    break
+        threading.Thread(target=_resize).start()
 
     def open_note_window(self, note_id, title, content):
         import webview
@@ -284,6 +287,7 @@ class Api:
                     // Change cursor behavior
                     tb.style.cursor = isLocked ? 'default' : 'move';
                     tb.querySelector('span').style.cursor = isLocked ? 'default' : 'pointer';
+                    if(window.pywebview) window.pywebview.api.toggle_note_topmost('{title}', isLocked);
                 }}
                 document.getElementById('resizer').addEventListener('mousedown', function(e) {{
                     isResizing = true;
@@ -297,7 +301,7 @@ class Api:
                     if (!isResizing) return;
                     if(resizeTimer) return;
                     resizeTimer = setTimeout(() => {{
-                        const newW = Math.max(200, startW + (e.screenX - rStartX));
+                        const newW = Math.max(260, startW + (e.screenX - rStartX));
                         const newH = Math.max(200, startH + (e.screenY - rStartY));
                         if(window.pywebview) window.pywebview.api.resize_note_window('{title}', newW, newH);
                         resizeTimer = null;
@@ -310,7 +314,31 @@ class Api:
         </body>
         </html>
         """
-        webview.create_window(f"Заметка: {title}", html=html, width=300, height=300, on_top=True, frameless=True, transparent=True, js_api=self, easy_drag=False, resizable=True)
+        webview.create_window(f"Заметка: {title}", html=html, width=300, height=300, min_size=(260, 200), on_top=False, frameless=True, js_api=self, easy_drag=False, resizable=True)
+
+    def toggle_note_topmost(self, title, is_topmost):
+        def _toggle():
+            for w in webview.windows:
+                if w.title == f"Заметка: {title}":
+                    try:
+                        w.on_top = is_topmost
+                    except:
+                        pass
+                    break
+            try:
+                import ctypes
+                user32 = ctypes.windll.user32
+                hwnd = user32.FindWindowW(None, f"Заметка: {title}")
+                if hwnd:
+                    HWND_TOPMOST = -1
+                    HWND_NOTOPMOST = -2
+                    SWP_NOMOVE = 0x0002
+                    SWP_NOSIZE = 0x0001
+                    user32.SetWindowPos(hwnd, HWND_TOPMOST if is_topmost else HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE)
+            except:
+                pass
+        import threading
+        threading.Thread(target=_toggle).start()
 
     def close_note_window(self, title):
         for w in webview.windows:
@@ -319,7 +347,17 @@ class Api:
                 break
 
     def set_note_opacity(self, title, opacity):
-        pass
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.FindWindowW(None, f"Заметка: {title}")
+            if hwnd:
+                style = user32.GetWindowLongW(hwnd, -20)
+                user32.SetWindowLongW(hwnd, -20, style | 0x00080000)
+                alpha = int(float(opacity) * 255)
+                user32.SetLayeredWindowAttributes(hwnd, 0, alpha, 2)
+        except:
+            pass
 
     def update_setting(self, key, value):
         self.settings[key] = value
@@ -496,20 +534,17 @@ def log_debug(msg):
 
 def toggle_window():
     global window_is_hidden
-    log_debug("toggle_window called, current state: " + str(window_is_hidden))
     try:
         if window_is_hidden:
             api._window.show()
             window_is_hidden = False
             set_window_opacity(api.settings.get('opacity', 0.95))
+            api._window.evaluate_js("if(typeof openWindowWithAnim === 'function') openWindowWithAnim();")
             log_debug("shown window")
             if not api.settings.get('watermark_verified', False):
                 watermark_overlay.show()
         else:
-            api._window.hide()
-            window_is_hidden = True
-            log_debug("hid window")
-            watermark_overlay.hide()
+            api._window.evaluate_js("if(typeof closeWindowWithAnim === 'function') closeWindowWithAnim(); else window.pywebview.api.hide_window();")
     except Exception as e:
         log_debug("error in toggle_window: " + str(e))
 

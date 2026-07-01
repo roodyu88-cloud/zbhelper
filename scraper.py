@@ -15,14 +15,17 @@ def fetch_servers():
         for node in soup.find_all('h3', class_='node-title'):
             a = node.find('a')
             if a and 'server-no' in a.get('href', ''):
+                name_raw = a.text.strip()
+                name_clean = name_raw.split('|')[-1].strip() if '|' in name_raw else name_raw
                 servers.append({
                     'id': BASE_URL + a.get('href'),
-                    'name': a.text.strip(),
+                    'name': name_clean,
                     'url': BASE_URL + a['href']
                 })
         return servers
     except Exception as e:
-        print("Error fetching servers:", e)
+        import traceback
+        print("Error fetching servers:", traceback.format_exc())
         return []
 
 def find_subforum(url, keywords):

@@ -1,6 +1,6 @@
 [Setup]
 #define MyAppName "ZBHelper"
-#define MyAppVersion "2.5.0"
+#define MyAppVersion "2.7.5"
 #define MyAppPublisher "roodyu"
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
